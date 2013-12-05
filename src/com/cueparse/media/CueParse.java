@@ -11,6 +11,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import android.annotation.SuppressLint;
 import android.media.MediaPlayer;
 
@@ -37,15 +38,10 @@ public class CueParse {
 	}
 
 	public void parseFolderWithCue(File folder) throws CueParseException {
-		if (isFolderValid(folder)) {
-			File cueFile = get—ueFile(folder).get(CUE_FILE_POS);
-			getTracksFromCue(cueFile);
-		} else {
-			File cueFile = getRightCue(folder);
-			if (cueFile != null) {
-			getTracksFromCue(cueFile);
-			} else throw mCueParseException;
-		}
+		if(isFolderValid(folder)){
+			parseCueFile(get—ueFile(folder).get(CUE_FILE_POS));
+		} else
+			throw mCueParseException;
 	}
 
 	public void parseCueFile(File cueFile) throws CueParseException {
@@ -63,7 +59,7 @@ public class CueParse {
 		ArrayList<Integer> startIndexes = getStartIndex();
 		String path = getTrackPaths(cueFile).get(FLAC_PATH_POS);
 		setAlbumName(titles);
-		for (int i = 0; i < titles.size() - 1; i++) {
+		for (int i = 0; i < startIndexes.size() - 1; i++) {
 			Track newTrack = new Track();
 			newTrack.setTitle(titles.get(i + 1));
 			newTrack.setArtist(performers.get(i));
@@ -98,18 +94,8 @@ public class CueParse {
 	}
 
 	public boolean isFolderValid(File folder) {
-		if (get—ueFile(folder).size() > 1)
-			return false;
-		else
-			return true;
-	}
-
-	public File getRightCue(File folder) {
-		for (File file : get—ueFile(folder)) {
-			if (file.getName().contains("flac"))
-				return file;
-		}
-		return null;
+		ArrayList<File> cueFiles = get—ueFile(folder);
+		return (cueFiles != null & cueFiles.size() > 0); 
 	}
 
 	// Cue sheet can have only 1 flac file, otherwise it won't be parsed
@@ -203,6 +189,7 @@ public class CueParse {
 		return cueFiles;
 	}
 
+	
 	public List<Track> getTracks() {
 		return tracks;
 	}
