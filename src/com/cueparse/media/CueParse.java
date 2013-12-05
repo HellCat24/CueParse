@@ -18,31 +18,36 @@ import android.media.MediaPlayer;
 public class CueParse {
 
 	private final int FLAC_PATH_POS = 0;
-	
+
 	private final int ALBUM_NAME_POS = 0;
-	
+
 	private final int CUE_FILE_POS = 0;
-	
+
 	private List<Track> tracks = new ArrayList<Track>();
 
 	private String albumName;
-	
+
 	private String cueString;
-	
+
 	private CueParseException mCueParseException;
-	
+
 	public CueParse() {
-		mCueParseException = new CueParseException("There more than one flac or cue file in the folder");
+		mCueParseException = new CueParseException(
+				"There more than one flac or cue file in the folder");
 	}
-	
+
 	public void parseFolderWithCue(File folder) throws CueParseException {
 		if (isFolderValid(folder)) {
 			File cueFile = get—ueFile(folder).get(CUE_FILE_POS);
 			getTracksFromCue(cueFile);
-		} else
-			throw mCueParseException;
+		} else {
+			File cueFile = getRightCue(folder);
+			if (cueFile != null) {
+			getTracksFromCue(cueFile);
+			} else throw mCueParseException;
+		}
 	}
-	
+
 	public void parseCueFile(File cueFile) throws CueParseException {
 		cueString = getStringFromCue(cueFile);
 		if (isCueValid(cueFile)) {
@@ -50,7 +55,7 @@ public class CueParse {
 		} else
 			throw mCueParseException;
 	}
-	
+
 	private void getTracksFromCue(File cueFile) {
 		cueString = getStringFromCue(cueFile);
 		ArrayList<String> titles = getTracksTitles();
@@ -67,9 +72,9 @@ public class CueParse {
 			newTrack.setAlbum(albumName);
 			tracks.add(newTrack);
 		}
-		setDurations(tracks, path);	
+		setDurations(tracks, path);
 	}
-	
+
 	private String getStringFromCue(File cueFile) {
 		StringBuilder text = new StringBuilder();
 		try {
@@ -85,109 +90,128 @@ public class CueParse {
 		return text.toString();
 	}
 
-	
 	public boolean isCueValid(File cueFile) {
-		if (getTrackPaths(cueFile).size() > 1) return false;
-		else return true;
+		if (getTrackPaths(cueFile).size() > 1)
+			return false;
+		else
+			return true;
 	}
-	
+
 	public boolean isFolderValid(File folder) {
-		if (get—ueFile(folder).size() > 1) return false;
-		else return true;
+		if (get—ueFile(folder).size() > 1)
+			return false;
+		else
+			return true;
 	}
-	
+
+	public File getRightCue(File folder) {
+		for (File file : get—ueFile(folder)) {
+			if (file.getName().contains("flac"))
+				return file;
+		}
+		return null;
+	}
+
 	// Cue sheet can have only 1 flac file, otherwise it won't be parsed
 	private ArrayList<String> getTrackPaths(File cueFile) {
 		ArrayList<String> paths = new ArrayList<String>();
 		Pattern path = Pattern.compile("FILE \".*\"");
 		Matcher pathMatcher = path.matcher(cueString);
 		while (pathMatcher.find()) {
-			paths.add(cueFile.getAbsolutePath().replace(cueFile.getName(), pathMatcher.group().replace("FILE \"", "").replace("\"", "")));
+			paths.add(cueFile.getAbsolutePath().replace(
+					cueFile.getName(),
+					pathMatcher.group().replace("FILE \"", "")
+							.replace("\"", "")));
 		}
 		return paths;
 	}
-	
+
 	private ArrayList<String> getTracksTitles() {
 		ArrayList<String> titles = new ArrayList<String>();
 		Pattern title = Pattern.compile("TITLE \".*\"");
 		Matcher titleMathcer = title.matcher(cueString);
 		while (titleMathcer.find()) {
-			titles.add(titleMathcer.group().replace("TITLE \"", "").replace("\"", ""));
+			titles.add(titleMathcer.group().replace("TITLE \"", "")
+					.replace("\"", ""));
 		}
 		return titles;
 	}
-	
+
 	private ArrayList<String> getTracksPerformers() {
 		ArrayList<String> performers = new ArrayList<String>();
 		Pattern performer = Pattern.compile("PERFORMER \".*\"");
 		Matcher performerMatcher = performer.matcher(cueString);
 		while (performerMatcher.find()) {
-			performers.add(performerMatcher.group().replace("PERFORMER \"", "").replace("\"", ""));
+			performers.add(performerMatcher.group().replace("PERFORMER \"", "")
+					.replace("\"", ""));
 		}
 		return performers;
 	}
-		
+
 	@SuppressWarnings("deprecation")
 	private ArrayList<Integer> getStartIndex() {
 		ArrayList<Integer> startPositions = new ArrayList<Integer>();
 		Pattern startIndex = Pattern.compile("INDEX 01.*");
 		Matcher startIndexMatcher = startIndex.matcher(cueString);
 		while (startIndexMatcher.find()) {
-			String test = startIndexMatcher.group().replace("INDEX 01 ", "").replace("\"", "");
+			String test = startIndexMatcher.group().replace("INDEX 01 ", "")
+					.replace("\"", "");
 			SimpleDateFormat format = new SimpleDateFormat("mm:ss:SS");
 			try {
 				Date time = format.parse(test);
 				int hours = time.getHours();
 				int minutes = time.getMinutes();
 				int seconds = time.getSeconds();
-				startPositions.add((hours*3600 + minutes * 60 + seconds));
+				startPositions.add((hours * 3600 + minutes * 60 + seconds));
 			} catch (ParseException e) {
 				e.printStackTrace();
 			}
 		}
 		return startPositions;
 	}
-	
+
 	private void setDurations(List<Track> tracks, String flacPath) {
 		for (int i = 0; i < tracks.size() - 1; i++) {
-			tracks.get(i).setDuration(tracks.get(i + 1).getStartPosition() - tracks.get(i).getStartPosition());
+			tracks.get(i).setDuration(
+					tracks.get(i + 1).getStartPosition()
+							- tracks.get(i).getStartPosition());
 		}
 		// Last track duration = total duration - last track starting point
 		MediaPlayer mMediaPlayer = new MediaPlayer();
 		try {
 			mMediaPlayer.setDataSource(flacPath);
 			mMediaPlayer.prepare();
-			int totalDuration = mMediaPlayer.getDuration()/1000;
-			int lastTrackDurarion = totalDuration - tracks.get(tracks.size() - 1).getStartPosition();
+			int totalDuration = mMediaPlayer.getDuration() / 1000;
+			int lastTrackDurarion = totalDuration
+					- tracks.get(tracks.size() - 1).getStartPosition();
 			tracks.get(tracks.size() - 1).setDuration(lastTrackDurarion);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
-		
+
 	private ArrayList<File> get—ueFile(File parentDir) {
-	    ArrayList<File> cueFiles = new ArrayList<File>();
-	    File[] files = parentDir.listFiles();
-	    for (File file : files) {
-	        if (!file.isDirectory()) {
-	            if(file.getName().endsWith(".cue")){
-	                cueFiles.add(file);
-	            }
-	        }
-	    }
-	    return cueFiles;
+		ArrayList<File> cueFiles = new ArrayList<File>();
+		File[] files = parentDir.listFiles();
+		for (File file : files) {
+			if (!file.isDirectory()) {
+				if (file.getName().endsWith(".cue")) {
+					cueFiles.add(file);
+				}
+			}
+		}
+		return cueFiles;
 	}
-	
 
 	public List<Track> getTracks() {
 		return tracks;
 	}
-	
-	public void setAlbumName(ArrayList<String> titles){
+
+	public void setAlbumName(ArrayList<String> titles) {
 		this.albumName = titles.get(ALBUM_NAME_POS);
 	}
-	
-	public String getAlbumName(){
+
+	public String getAlbumName() {
 		return albumName;
 	}
 }
